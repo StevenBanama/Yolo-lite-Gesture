@@ -2,13 +2,14 @@ import os
 import re
 import cv2
 import numpy as np
-from utils.utils import image_preporcess, postprocess_boxes, nms, draw_bbox, build_params
+from utils.utils import image_preporcess, postprocess_boxes, nms, draw_bbox, build_params, tcost
 from easydict import EasyDict as easydict
 from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
 from train import build_model
 
+@tcost
 def run_result(models, org_img, input_size, class_num=8):
     original_image_size = org_img.shape[:2]
     img = image_preporcess(np.copy(org_img), [input_size, input_size])
@@ -33,11 +34,11 @@ def run_test(params):
     models = build_model(params)
 
     org_img = img = cv2.imread("./data/test/344450.jpg")
-    input_size = 224
+    input_size = params.test_input
     run_result(models, org_img, input_size, params.class_num)
     cv2.imwrite("test_gg.jpg", org_img)
 
-def run_batch(params=build_params(True, True)):
+def run_batch(params):
     result = []
     models = build_model(params)
 
@@ -70,7 +71,7 @@ def freezon_graph(params):
 def video(params):
     cap = cv2.VideoCapture(0)
     models = build_model(params)
-    input_size = 224
+    input_size = params.test_input
 
     while(True):
         ret, org_img = cap.read()
@@ -81,14 +82,16 @@ def video(params):
         run_result(models, org_img, input_size, params.class_num)
 
         cv2.imshow("camera", org_img)
+        cv2.waitKey(1)
 
 
 if __name__ == "__main__":
-    params = build_params(True, True)
-    freezon_graph(params)
+    params = build_params()
     if params.mode == "test":
         run_test(params)
-    else if params.mode == "freeze":
-        run_test(params)
+    elif params.mode == "freeze":
+        freezon_graph(params)
+    elif params.mode == "batch":
+        run_batch(params)
     else:
         video(params)

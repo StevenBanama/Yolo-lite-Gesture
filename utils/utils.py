@@ -12,42 +12,38 @@
 #================================================================
 
 import cv2
+import time
 import random
 import colorsys
 import numpy as np
 #import tensorflow as tf
 import tensorflow.compat.v1 as tf
 from easydict import EasyDict as easydict
+from utils.params import build_args as build_params
 
 
-def build_params(restore=True, train=False):
-    params = easydict()
-    params.lr = 0.001
-    params.strides = [16, 32]
+def tcost(func):
+    ttimes = {}
+    ttimes.update({func.__name__: {"cost": 0, "cnt": 0}})
 
-    params.log_dir = "./log"
-    params.save_path = "./models/cp-{epoch:02d}-{val_loss:02f}"  # need ckpt, choose ".ckpt"
-    params.restore = restore
-    params.train = train
-    params.pretrain_model = "./pretrained/cp-89-4.569014"#cp-94-4.368978"
-    params.class_num = 8
-    params.iou_thres = 0.5  # default = 0.5
-    params.anchors = np.reshape(np.array([1.59375,2.46875,2.0,2.3125,2.21875,3.1875,1.359375,1.390625,1.546875,1.828125,2.265625,3.0]), (2, 3, 2)) 
-    params.mode = "freeze" # train | test | freeze
-    params.test_input = 224
-    '''params.categories = {
-        0: "other",
-        1: "ok",
-        2: "v",
-        3: "five",
-        4: "six",
-        5: "IOU",
-        6: "good",
-        7: "bad"
-    }'''
+    def __log__():
+        mcost = ttimes.get(func.__name__, {})
+        total_cost, total_cnt = mcost.get("cost", 0), mcost.get("cnt", 0)
+        if total_cnt % 10 == 0:
+            print("avg: {}  --- cnt: {}".format(total_cost / total_cnt, total_cnt))
 
-    return params
+    def __count_one__(dur_time):
+        ttimes[func.__name__]["cost"] += dur_time
+        ttimes[func.__name__]["cnt"] += 1
 
+    def __wrap__(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        dur_time = time.time() - start_time
+        __count_one__(dur_time)
+        __log__()
+        return result
+    return __wrap__
 
 def read_class_names(class_file_name):
     '''loads class name from a file'''

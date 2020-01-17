@@ -245,8 +245,8 @@ def build_model(params):
     return models
 
 def build_net(params):
-    dataset = Dataset("train", pworker=1)
-    testset = Dataset("test", pworker=1)
+    dataset = Dataset("train", params, pworker=1)
+    testset = Dataset("test", params, pworker=1)
 
 
     params.anchors = dataset.anchors
@@ -264,5 +264,5 @@ def build_net(params):
 
 
 if __name__ == "__main__":
-    params = build_params(True, True)
+    params = build_params()
     build_net(params)

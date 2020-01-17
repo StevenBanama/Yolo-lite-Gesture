@@ -9,16 +9,16 @@ from .utils import image_preporcess
 
 class Dataset(object):
     """implement Dataset here"""
-    def __init__(self, dataset_type, sample_rate=1.0, pworker=3):
-        self.annot_path  = "./data/{}.ano".format(("train" if dataset_type == "train" else "test"))
+    def __init__(self, dataset_type, params, sample_rate=1.0, pworker=3):
+        self.annot_path  = params.train_ano if dataset_type == "train" else params.test_ano
         self.batch_size  = 16
         self.data_aug    = True if dataset_type == "train" else False
         self.sample_rate = sample_rate
 
-        self.train_input_sizes = [224, 288, 320, 352, 448]
-        self.strides = np.array([16, 32])
-        self.num_classes = 8
-        self.anchors = np.reshape(np.array([1.59375,2.46875,2.0,2.3125,2.21875,3.1875,1.359375,1.390625,1.546875,1.828125,2.265625,3.0]), (2, 3, 2)) # np.reshape(np.array([1.875, 3.8125, 3.875, 2.8125, 3.6875, 7.4375, 3.625, 2.8125, 4.875, 6.1875, 11.65625, 10.1875]), (2, 3, 2))
+        self.train_input_sizes = np.array(params.train_input_sizes)
+        self.strides = np.array(params.strides)
+        self.num_classes = params.class_num
+        self.anchors = params.anchors
         self.anchor_per_scale = 3
         self.max_bbox_per_scale = 150
 
