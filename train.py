@@ -5,16 +5,22 @@ import tensorflow as tf
 from utils.utils import image_preporcess, postprocess_boxes, nms, draw_bbox, build_params
 from utils.dataset import Dataset
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, LearningRateScheduler, ReduceLROnPlateau, LambdaCallback
 
 tf.compat.v1.disable_eager_execution()
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Conv2DTranspose, Conv2D, UpSampling2D, MaxPooling2D, Reshape
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import LeakyReLU as LReLU
+import tensorflow_model_optimization as tfmot
 
 
 def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max"):
-    conv = tf.keras.layers.Conv2D(kernel_shape[-1], tuple(kernel_shape[:2]), padding="same", activation=activation, name=name)(input)
+    conv = tf.keras.layers.Conv2D(kernel_shape[-1],
+            tuple(kernel_shape[:2]), padding="same", activation=activation,
+            # kernel_regularizer=tf.keras.regularizers.l1(0.01),
+            # activity_regularizer=tf.keras.regularizers.l2(0.01),
+            name=name)(input)
     if pooling == "max":
         conv = MaxPooling2D(pool_size=(2, 2), strides=strides, padding='same')(conv)
     return conv
@@ -125,6 +131,8 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
     conv_raw_conf = conv[:, :, :, :, 4:5]
     conv_raw_prob = conv[:, :, :, :, 5:]
 
+
+    #@tf.function
     def gen_loss(label, pred):
         '''
             label[b, x, y, scale, 5 + cn]
@@ -189,15 +197,14 @@ def lite_backbone_net(input):
     return backbone
 
 def get_callbacks(params):
-    from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, LearningRateScheduler, ReduceLROnPlateau, LambdaCallback
 
     return [
         ModelCheckpoint(params.save_path, monitor='val_loss', verbose=1, save_best_only=True, save_weights_only=True, mode='min'),
-        TensorBoard(log_dir=params.log_dir, write_images=True, update_freq='epoch')
+        TensorBoard(log_dir=params.log_dir, write_images=True, update_freq='epoch'),
+        tfmot.sparsity.keras.PruningSummaries("./log")
     ]
 
 def build_model(params):
-    
     input = Input(shape=[None, None, 3])
 
     checkpoint_dir = os.path.dirname(params.save_path)
@@ -213,25 +220,34 @@ def build_model(params):
         lge_raw, lge_pred = region_decode(conv5, conv7, params.class_num, params.strides[1], params.anchors[1], "large")
 
     models = Model([input], [mid_pred, lge_pred])
+
+    pruning_params = {
+        'pruning_schedule': tfmot.sparsity.keras.ConstantSparsity(0.5, 0),
+        'block_size': (1, 1),
+        'block_pooling_type': 'MAX'
+    }
+
+
     if params.train:
         adam = Adam(lr=params.lr)
         models.compile(
             optimizer=adam,
             loss=[
-                loss_layer(mid_raw, params.anchors[0], params.strides[0], params.class_num, iou_loss_thresh=0.5),
-                loss_layer(lge_raw, params.anchors[1], params.strides[1], params.class_num, iou_loss_thresh=0.5)
+                loss_layer(mid_raw, params.anchors[0], params.strides[0], params.class_num, iou_loss_thresh=params.iou_thres),
+                loss_layer(lge_raw, params.anchors[1], params.strides[1], params.class_num, iou_loss_thresh=params.iou_thres)
             ],
         )
     if params.restore:
         models.load_weights(params.pretrain_model)
-
+        # models = load_model(params.pretrain_model)
+        print("!!!!!!!")
+    #models = tfmot.sparsity.keras.prune_low_magnitude(models, **pruning_params)
     return models
-
-
 
 def build_net(params):
     dataset = Dataset("train", pworker=1)
     testset = Dataset("test", pworker=1)
+
 
     params.anchors = dataset.anchors
     params.class_num = dataset.num_classes
@@ -248,5 +264,5 @@ def build_net(params):
 
 
 if __name__ == "__main__":
-    params = build_params(False, True)
+    params = build_params(True, True)
     build_net(params)

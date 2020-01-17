@@ -12,8 +12,8 @@ class Dataset(object):
     def __init__(self, dataset_type, sample_rate=1.0, pworker=3):
         self.annot_path  = "./data/{}.ano".format(("train" if dataset_type == "train" else "test"))
         self.batch_size  = 16
-        self.data_aug    = True
-        self.sample_rate = 1
+        self.data_aug    = True if dataset_type == "train" else False
+        self.sample_rate = sample_rate
 
         self.train_input_sizes = [224, 288, 320, 352, 448]
         self.strides = np.array([16, 32])
@@ -289,6 +289,19 @@ class Dataset(object):
                     bbox_count[i] += 1
 
                     exist_positive = True
+
+            if not exist_positive:
+                best_anchor_ind = np.argmax(np.array(iou).reshape(-1), axis=-1)
+                best_detect = int(best_anchor_ind / self.anchor_per_scale)
+                best_anchor = int(best_anchor_ind % self.anchor_per_scale)
+                xind, yind = np.floor(bbox_xywh_scaled[best_detect, 0:2]).astype(np.int32)
+
+                label[best_detect][yind, xind, best_anchor, :] = 0
+                label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
+                label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
+                label[best_detect][yind, xind, best_anchor, 5:] = smooth_onehot
+
+                bbox_ind = int(bbox_count[best_detect] % self.max_bbox_per_scale)
 
         label_mbbox, label_lbbox = label
         return label_mbbox, label_lbbox

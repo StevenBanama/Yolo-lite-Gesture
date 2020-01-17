@@ -26,12 +26,25 @@ def build_params(restore=True, train=False):
     params.strides = [16, 32]
 
     params.log_dir = "./log"
-    params.save_path = "./models/cp-{epoch:02d}-{val_loss:02f}.ckpt"
+    params.save_path = "./models/cp-{epoch:02d}-{val_loss:02f}"  # need ckpt, choose ".ckpt"
     params.restore = restore
     params.train = train
-    params.pretrain_model = "./models/cp-94-4.762634.ckpt"
+    params.pretrain_model = "./pretrained/cp-89-4.569014"#cp-94-4.368978"
     params.class_num = 8
+    params.iou_thres = 0.5  # default = 0.5
     params.anchors = np.reshape(np.array([1.59375,2.46875,2.0,2.3125,2.21875,3.1875,1.359375,1.390625,1.546875,1.828125,2.265625,3.0]), (2, 3, 2)) 
+    params.mode = "freeze" # train | test | freeze
+    params.test_input = 224
+    '''params.categories = {
+        0: "other",
+        1: "ok",
+        2: "v",
+        3: "five",
+        4: "six",
+        5: "IOU",
+        6: "good",
+        7: "bad"
+    }'''
 
     return params
 
@@ -67,7 +80,7 @@ def image_preporcess(image, target_size, gt_boxes=None):
     image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0)
     dw, dh = (iw - nw) // 2, (ih-nh) // 2
     image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
-    image_paded = image_paded / 255.
+    image_paded = (image_paded - 127.5) / 128.
 
     if gt_boxes is None:
         return image_paded
