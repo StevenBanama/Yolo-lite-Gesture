@@ -3,7 +3,7 @@ import numpy as np
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval, Params
 from demo import run_batch
-from utils.utils import build_params 
+from utils.utils import build_params, config_gpu 
 
 class GestureEval(COCO):
 
@@ -54,13 +54,13 @@ class GestureEval(COCO):
 
 def evaluating(cocoGt, cocoDt):
     handler = COCOeval(cocoGt, cocoDt, "bbox") 
-    print(handler.params.imgIds)
     handler.evaluate()
     handler.accumulate()
     handler.summarize()
 
 
 if __name__ == "__main__":
+    config_gpu()
     params = build_params()
     result = run_batch(params)
     gt = GestureEval(None, params=params)

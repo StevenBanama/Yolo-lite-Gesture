@@ -59,14 +59,14 @@ def build_args():
     parser = argparse.ArgumentParser()
 
     # ------train prams-------
-    parser.add_argument('-lr', type=float, default=0.0001, help='learn rate')
+    parser.add_argument('-lr', type=float, default=0.001, help='learn rate')
     parser.add_argument("--strides", nargs='*', default=[16, 32])
-    parser.add_argument("--train_input_sizes", nargs='*', default=[224, 288, 320, 352, 384, 416, 448])
+    parser.add_argument("--train_input_sizes", nargs='*', default=[128, 160, 192, 224, 256, 288, 320, 352, 384, 416])
     parser.add_argument("--data_dir", default="./data")
     parser.add_argument("--log_dir", default="./log")
     parser.add_argument("--save_path", default="./models/cp-{epoch:02d}-{val_loss:02f}")
-    parser.add_argument("--restore", default=True)
-    parser.add_argument("--train", default=True)
+    parser.add_argument("--restore", default=False, action="store_true")
+    parser.add_argument("--train", default=True, action="store_true")
     parser.add_argument("--pretrain_model", default="./pretrained/cp-89-4.569014")
     parser.add_argument("--iou_thres", default=0.5)
     parser.add_argument("--anchors_path", default="./data/anchors/anchors.txt", dest="anchors", action=LoadAnchors)
@@ -74,12 +74,12 @@ def build_args():
     parser.add_argument("--train_ano", default="./data/train.ano")
     parser.add_argument("--test_ano", default="./data/test.ano")
     parser.add_argument("--eval_ano", default="./data/test.ano")
-
-
+    parser.add_argument("--epoch", default=200)
+    parser.add_argument("--batch_size", default=8, type=int)
 
     # ------- test / evaluating params -------
     parser.add_argument("--mode", choices=["batch", "test", "video", "freeze"], default="video")
-    parser.add_argument("--test_input", default=224)
+    parser.add_argument("--test_input", default=224, type=int)
 
     args = parser.parse_args()
     setattr(args, "class_num", len(args.categories))

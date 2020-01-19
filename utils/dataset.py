@@ -11,7 +11,7 @@ class Dataset(object):
     """implement Dataset here"""
     def __init__(self, dataset_type, params, sample_rate=1.0, pworker=3):
         self.annot_path  = params.train_ano if dataset_type == "train" else params.test_ano
-        self.batch_size  = 16
+        self.batch_size  = params.batch_size
         self.data_aug    = True if dataset_type == "train" else False
         self.sample_rate = sample_rate
 
@@ -269,7 +269,7 @@ class Dataset(object):
 
                 iou_scale = self.bbox_iou(bbox_xywh_scaled[i][np.newaxis, :], anchors_xywh)
                 iou.append(iou_scale)
-                iou_mask = iou_scale > 0.3
+                iou_mask = iou_scale > 0.5
 
                 if np.any(iou_mask):
                     xind, yind = np.floor(bbox_xywh_scaled[i, 0:2]).astype(np.int32)

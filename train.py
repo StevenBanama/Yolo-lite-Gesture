@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import tensorflow as tf
-from utils.utils import image_preporcess, postprocess_boxes, nms, draw_bbox, build_params
+from utils.utils import image_preporcess, postprocess_boxes, nms, draw_bbox, build_params, config_gpu
 from utils.dataset import Dataset
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard, EarlyStopping, LearningRateScheduler, ReduceLROnPlateau, LambdaCallback
@@ -15,12 +15,14 @@ from tensorflow.keras.layers import LeakyReLU as LReLU
 import tensorflow_model_optimization as tfmot
 
 
-def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max"):
+def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max", bn=False):
     conv = tf.keras.layers.Conv2D(kernel_shape[-1],
             tuple(kernel_shape[:2]), padding="same", activation=activation,
             # kernel_regularizer=tf.keras.regularizers.l1(0.01),
             # activity_regularizer=tf.keras.regularizers.l2(0.01),
             name=name)(input)
+    if bn:
+        conv = tf.keras.layers.BatchNormalization()(conv)
     if pooling == "max":
         conv = MaxPooling2D(pool_size=(2, 2), strides=strides, padding='same')(conv)
     return conv
@@ -185,13 +187,13 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
     return gen_loss 
 
 def lite_backbone_net(input):
-    block1 = block_conv(input, [3, 3, 3, 16], name="block1") 
-    block2 = block_conv(block1, [3, 3, 16, 32], activation=LReLU(), name="block2")
-    block3 = block_conv(block2, [3, 3, 32, 64], activation=LReLU(), name="block3")
-    block4 = block_conv(block3, [3, 3, 64, 128], activation=LReLU(), name="block4") 
-    block5 = block_conv(block4, [3, 3, 128, 128], activation=LReLU(), name="block5")
-    block6 = block_conv(block5, [3, 3, 128, 256], pooling=None, name="block6")
-    block7 = block_conv(block6, [1, 1, 256, 128], pooling=None, name="block7")
+    block1 = block_conv(input, [3, 3, 3, 16], name="block1", bn=True) 
+    block2 = block_conv(block1, [3, 3, 16, 32], activation=LReLU(), name="block2", bn=True)
+    block3 = block_conv(block2, [3, 3, 32, 64], activation=LReLU(), name="block3", bn=True)
+    block4 = block_conv(block3, [3, 3, 64, 128], activation=LReLU(), name="block4", bn=True) 
+    block5 = block_conv(block4, [3, 3, 128, 128], activation=LReLU(), name="block5", bn=True)
+    block6 = block_conv(block5, [3, 3, 128, 256], pooling=None, name="block6", bn=True)
+    block7 = block_conv(block6, [1, 1, 256, 128], pooling=None, name="block7", bn=True)
     backbone = Model([input], block7)
     backbone.summary() 
     return backbone
@@ -248,15 +250,11 @@ def build_net(params):
     dataset = Dataset("train", params, pworker=1)
     testset = Dataset("test", params, pworker=1)
 
-
-    params.anchors = dataset.anchors
-    params.class_num = dataset.num_classes
-    params.batch_size = dataset.batch_size
     models = build_model(params)
     print(models.summary())
     
     models.fit_generator(dataset.gen_iter(),
-        steps_per_epoch=dataset.num_batchs, epochs=100,
+        steps_per_epoch=dataset.num_batchs, epochs=params.epoch,
         validation_data=testset.gen_iter(),
         validation_steps=testset.num_batchs,
         callbacks=get_callbacks(params)
@@ -264,5 +262,6 @@ def build_net(params):
 
 
 if __name__ == "__main__":
+    config_gpu()
     params = build_params()
     build_net(params)

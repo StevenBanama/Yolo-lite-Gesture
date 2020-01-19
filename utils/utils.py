@@ -45,6 +45,20 @@ def tcost(func):
         return result
     return __wrap__
 
+def config_gpu():
+    import tensorflow as tf
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+       try:
+           # Currently, memory growth needs to be the same across GPUs
+           for gpu in gpus:
+               tf.config.experimental.set_memory_growth(gpu, True)
+               logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+           print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+       except RuntimeError as e:
+           # Memory growth must be set before GPUs have been initialized
+           print(e)
+
 def read_class_names(class_file_name):
     '''loads class name from a file'''
     names = {}
@@ -76,7 +90,7 @@ def image_preporcess(image, target_size, gt_boxes=None):
     image_paded = np.full(shape=[ih, iw, 3], fill_value=128.0)
     dw, dh = (iw - nw) // 2, (ih-nh) // 2
     image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
-    image_paded = (image_paded - 127.5) / 128.
+    image_paded = (image_paded -127.5) / 128.
 
     if gt_boxes is None:
         return image_paded
