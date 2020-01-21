@@ -12,7 +12,10 @@ class Dataset(object):
     def __init__(self, dataset_type, params, sample_rate=1.0, pworker=3):
         self.annot_path  = params.train_ano if dataset_type == "train" else params.test_ano
         self.batch_size  = params.batch_size
+        self.channel_num  = params.channel
+
         self.data_aug    = True if dataset_type == "train" else False
+        self.canny = params.canny
         self.sample_rate = sample_rate
 
         self.train_input_sizes = np.array(params.train_input_sizes)
@@ -61,7 +64,7 @@ class Dataset(object):
         train_input_size = random.choice(self.train_input_sizes)
         train_output_sizes = train_input_size // self.strides
 
-        batch_image = np.zeros((self.batch_size, train_input_size, train_input_size, 3))
+        batch_image = np.zeros((self.batch_size, train_input_size, train_input_size, self.channel_num))
 
         batch_label_mbbox = np.zeros((self.batch_size, train_output_sizes[0], train_output_sizes[0],
                                       self.anchor_per_scale, 5 + self.num_classes))
@@ -216,7 +219,7 @@ class Dataset(object):
             
         image, bboxes = image_preporcess(np.copy(image),
                 [train_input_size, train_input_size],
-                np.copy(bboxes))
+                np.copy(bboxes), self.canny)
         return image, bboxes
 
     def bbox_iou(self, boxes1, boxes2):
@@ -269,7 +272,7 @@ class Dataset(object):
 
                 iou_scale = self.bbox_iou(bbox_xywh_scaled[i][np.newaxis, :], anchors_xywh)
                 iou.append(iou_scale)
-                iou_mask = iou_scale > 0.5
+                iou_mask = iou_scale > 0.3
 
                 if np.any(iou_mask):
                     xind, yind = np.floor(bbox_xywh_scaled[i, 0:2]).astype(np.int32)

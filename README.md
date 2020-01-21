@@ -6,36 +6,23 @@
 
 # train
    // default parameter use "python train -h"
-   python train.py
+   python train.py --mode train --pretrain_model=./pretrain_model/cp-30-3.614092 --se --bn
 
 # test
-   python evaluate.py  # hack api depents on coco-tools
-   
-   unstable stats depents on only few sample (input=224, 40ms/per roi).
-   |-|
-   | Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.476 |
-   | Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.884 |
-   | Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.465 |
-   | Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = -1.000 |
-   | Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.369 |
-   | Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.527 |
-   | Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.544 |
-   | Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.544 |
-   | Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.544 |
-   | Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = -1.000 |
-   | Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.436 |
-   | Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.587 |
+   python evaluate.py --pretrain_model=./pretrain_model/cp-30-3.614092 --se --bn # hack api depents on coco-tools 
 
 # video
-   python demo.py --mode video
+   python demo.py --mode video --pretrain_model=./pretrain_model/cp-30-3.614092 --se --bn
+   # python demo.py --mode video --pretrain_model=./pretrain_model/cp-145-4.073046
 
 # to-do 
     1. coco-pretrain model
-    2. some serilization-bug between keras and tf
+    2. some serilization-bug between keras and tf2.1
        cant load model with partial. (as far known)
     3. other bug 
 
 # refrence
    https://arxiv.org/pdf/1811.05588
+   https://towardsdatascience.com/review-senet-squeeze-and-excitation-network-winner-of-ilsvrc-2017-image-classification-a887b98b2883
    https://github.com/YunYang1994/tensorflow-yolov3
    https://github.com/cocodataset/cocoapi/blob/e140a084d678eacd18e85a9d8cfa45d1d5911db9/PythonAPI/pycocotools/coco.py

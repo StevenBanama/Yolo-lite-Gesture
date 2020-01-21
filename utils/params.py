@@ -66,22 +66,30 @@ def build_args():
     parser.add_argument("--log_dir", default="./log")
     parser.add_argument("--save_path", default="./models/cp-{epoch:02d}-{val_loss:02f}")
     parser.add_argument("--restore", default=False, action="store_true")
-    parser.add_argument("--train", default=True, action="store_true")
-    parser.add_argument("--pretrain_model", default="./pretrained/cp-89-4.569014")
+    # parser.add_argument("--train", default=True, action="store_false")
+    parser.add_argument("--se", default=False, action="store_true", help="channel attention")
+    parser.add_argument("--canny", default=False, action="store_true", help="add a channel except for rgb channel")
+    parser.add_argument("--bn", default=False, action="store_true", help="batch norm")
+
+    parser.add_argument("--pretrain_model", default="", help="model path")
     parser.add_argument("--iou_thres", default=0.5)
     parser.add_argument("--anchors_path", default="./data/anchors/anchors.txt", dest="anchors", action=LoadAnchors)
     parser.add_argument("--cate_path", default="./data/categories/cates.txt", dest="categories", action=LoadCates)
     parser.add_argument("--train_ano", default="./data/train.ano")
     parser.add_argument("--test_ano", default="./data/test.ano")
-    parser.add_argument("--eval_ano", default="./data/test.ano")
+    parser.add_argument("--eval_ano", default="./data/test.ano", help="evaluating anotaion.")
     parser.add_argument("--epoch", default=200)
     parser.add_argument("--batch_size", default=8, type=int)
 
     # ------- test / evaluating params -------
-    parser.add_argument("--mode", choices=["batch", "test", "video", "freeze"], default="video")
+    parser.add_argument("--mode", choices=["train", "batch", "test", "video", "freeze"], default="video")
     parser.add_argument("--test_input", default=224, type=int)
 
     args = parser.parse_args()
+    # extra params
     setattr(args, "class_num", len(args.categories))
+    setattr(args, "channel", 4 if args.canny else 3)  # rgb == 3 ; cany = (rgn + cany)
+    setattr(args, "id2cate", {vid: name for name, vid in args.categories.items()})
+
     print(args)
     return args

@@ -11,11 +11,22 @@ tf.compat.v1.disable_eager_execution()
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Conv2DTranspose, Conv2D, UpSampling2D, MaxPooling2D, Reshape
 from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.layers import LeakyReLU as LReLU
+from tensorflow.keras.layers import LeakyReLU as LReLU, ReLU, Dense, GlobalAveragePooling2D, multiply 
 import tensorflow_model_optimization as tfmot
 
+def SE_BLOCK(input, using_SE=True, r_factor=2):
+    # channel attention
+    if not using_SE:
+        return input
+    channel_nums = input.get_shape()[-1]
+    ga_pooling = GlobalAveragePooling2D()(input)
+    fc1 = Dense(channel_nums // r_factor)(ga_pooling)
+    scale = Dense(channel_nums, activation="sigmoid")(ReLU()(fc1))
+    print("!!!!!", channel_nums, scale, input)
+    return multiply([scale, input])
 
-def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max", bn=False):
+
+def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max", bn=False, se=False):
     conv = tf.keras.layers.Conv2D(kernel_shape[-1],
             tuple(kernel_shape[:2]), padding="same", activation=activation,
             # kernel_regularizer=tf.keras.regularizers.l1(0.01),
@@ -23,8 +34,11 @@ def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activa
             name=name)(input)
     if bn:
         conv = tf.keras.layers.BatchNormalization()(conv)
+    if se:
+        conv = SE_BLOCK(conv)
     if pooling == "max":
         conv = MaxPooling2D(pool_size=(2, 2), strides=strides, padding='same')(conv)
+
     return conv
 
 def bbox_giou(boxes1, boxes2):
@@ -186,17 +200,17 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
         return total_loss
     return gen_loss 
 
-def lite_backbone_net(input):
-    block1 = block_conv(input, [3, 3, 3, 16], name="block1", bn=True) 
-    block2 = block_conv(block1, [3, 3, 16, 32], activation=LReLU(), name="block2", bn=True)
-    block3 = block_conv(block2, [3, 3, 32, 64], activation=LReLU(), name="block3", bn=True)
-    block4 = block_conv(block3, [3, 3, 64, 128], activation=LReLU(), name="block4", bn=True) 
-    block5 = block_conv(block4, [3, 3, 128, 128], activation=LReLU(), name="block5", bn=True)
-    block6 = block_conv(block5, [3, 3, 128, 256], pooling=None, name="block6", bn=True)
-    block7 = block_conv(block6, [1, 1, 256, 128], pooling=None, name="block7", bn=True)
+def lite_backbone_net(input, params):
+    block1 = block_conv(input, [3, 3, -1, 16], name="block1", bn=params.bn, se=params.se)
+    block2 = block_conv(block1, [3, 3, 16, 32], activation=LReLU(), name="block2", bn=params.bn, se=params.se)
+    block3 = block_conv(block2, [3, 3, 32, 64], activation=LReLU(), name="block3", bn=params.bn, se=params.se)
+    block4 = block_conv(block3, [3, 3, 64, 128], activation=LReLU(), name="block4", bn=params.bn, se=params.se)
+    block5 = block_conv(block4, [3, 3, 128, 128], activation=LReLU(), name="block5", bn=params.bn, se=params.se)
+    block6 = block_conv(block5, [3, 3, 128, 256], pooling=None, name="block6", bn=params.bn, se=params.se)
+    block7 = block_conv(block6, [1, 1, 256, 128], pooling=None, name="block7", bn=params.bn, se=params.se)
     backbone = Model([input], block7)
     backbone.summary() 
-    return backbone
+    return backbone, [block4, block5, block7]
 
 def get_callbacks(params):
 
@@ -207,16 +221,17 @@ def get_callbacks(params):
     ]
 
 def build_model(params):
-    input = Input(shape=[None, None, 3])
+    input = Input(shape=[None, None, params.channel])
 
     checkpoint_dir = os.path.dirname(params.save_path)
 
-    backbone = lite_backbone_net(input)
+    backbone, joint = lite_backbone_net(input, params)
 
     with tf.name_scope('branch'):
-        conv4 = backbone.get_layer("max_pooling2d_3").output
-        conv5 = backbone.get_layer("max_pooling2d_4").output
-        conv7 = backbone.get_layer("block7").output
+        #conv4 = backbone.get_layer("max_pooling2d_3").output
+        #conv5 = backbone.get_layer("max_pooling2d_4").output
+        #conv7 = backbone.get_layer("block7").output
+        conv4, conv5, conv7 = joint
 
         mid_raw, mid_pred = region_decode(conv4, UpSampling2D(2)(conv5), params.class_num, params.strides[0], params.anchors[0], "mid")
         lge_raw, lge_pred = region_decode(conv5, conv7, params.class_num, params.strides[1], params.anchors[1], "large")
@@ -230,7 +245,7 @@ def build_model(params):
     }
 
 
-    if params.train:
+    if params.mode == "train":
         adam = Adam(lr=params.lr)
         models.compile(
             optimizer=adam,
@@ -239,7 +254,7 @@ def build_model(params):
                 loss_layer(lge_raw, params.anchors[1], params.strides[1], params.class_num, iou_loss_thresh=params.iou_thres)
             ],
         )
-    if params.restore:
+    if params.pretrain_model:
         models.load_weights(params.pretrain_model)
         # models = load_model(params.pretrain_model)
         print("!!!!!!!")
