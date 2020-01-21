@@ -2,18 +2,18 @@
      This is a sample code about yolo-lite.
 
 # reqiurments
-   pip install -r requirement.txt 
+   >> pip install -r requirement.txt 
 
 # train
-   // default parameter use "python train -h"
-   python train.py --mode train --pretrain_model=./pretrained/cp-30-3.614092 --se --bn
+    default parameter use "python train -h"
+   >> python train.py --mode train --pretrain_model=./pretrained/cp-30-3.614092 --se --bn
 
 # test
    python evaluate.py --pretrain_model=./pretrained/cp-30-3.614092 --se --bn # hack api depents on coco-tools 
 
 # video
-   python demo.py --mode video --pretrain_model=./pretrained/cp-30-3.614092 --se --bn
-   # python demo.py --mode video --pretrain_model=./pretrained/cp-145-4.073046
+   >> python demo.py --mode video --pretrain_model=./pretrained/cp-30-3.614092 --se --bn
+   >> python demo.py --mode video --pretrain_model=./pretrained/cp-145-4.073046
 
 # to-do 
     1. coco-pretrain model
