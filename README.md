@@ -22,7 +22,7 @@
     3. other bug 
 
 # refrence
-   https://arxiv.org/pdf/1811.05588
-   https://towardsdatascience.com/review-senet-squeeze-and-excitation-network-winner-of-ilsvrc-2017-image-classification-a887b98b2883
-   https://github.com/YunYang1994/tensorflow-yolov3
-   https://github.com/cocodataset/cocoapi/blob/e140a084d678eacd18e85a9d8cfa45d1d5911db9/PythonAPI/pycocotools/coco.py
+   1. https://arxiv.org/pdf/1811.05588
+   2. https://towardsdatascience.com/review-senet-squeeze-and-excitation-network-winner-of-ilsvrc-2017-image-classification-a887b98b2883
+   3. https://github.com/YunYang1994/tensorflow-yolov3
+   4. https://github.com/cocodataset/cocoapi/blob/e140a084d678eacd18e85a9d8cfa45d1d5911db9/PythonAPI/pycocotools/coco.py
