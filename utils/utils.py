@@ -185,6 +185,38 @@ def nms(bboxes, iou_threshold, sigma=0.3, method='nms'):
     Note: soft-nms, https://arxiv.org/pdf/1704.04503.pdf
           https://github.com/bharatsingh430/soft-nms
     """
+    best_bboxes = []
+
+    while len(bboxes) > 0:
+        max_ind = np.argmax(bboxes[:, 4])
+        best_bbox = bboxes[max_ind]
+        best_bboxes.append(best_bbox)
+        bboxes = np.concatenate([bboxes[: max_ind], bboxes[max_ind + 1:]])
+        iou = bboxes_iou(best_bbox[np.newaxis, :4], bboxes[:, :4])
+        weight = np.ones((len(iou),), dtype=np.float32)
+
+        assert method in ['nms', 'soft-nms']
+
+        if method == 'nms':
+            iou_mask = iou > iou_threshold
+            weight[iou_mask] = 0.0
+
+        if method == 'soft-nms':
+            weight = np.exp(-(1.0 * iou ** 2 / sigma))
+
+        bboxes[:, 4] = bboxes[:, 4] * weight
+        score_mask = bboxes[:, 4] > 0.
+        bboxes = bboxes[score_mask]
+
+    return best_bboxes
+
+def nms2(bboxes, iou_threshold, sigma=0.3, method='nms'):
+    """
+    :param bboxes: (xmin, ymin, xmax, ymax, score, class)
+
+    Note: soft-nms, https://arxiv.org/pdf/1704.04503.pdf
+          https://github.com/bharatsingh430/soft-nms
+    """
     classes_in_img = list(set(bboxes[:, 5]))
     best_bboxes = []
 
