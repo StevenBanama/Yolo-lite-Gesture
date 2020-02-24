@@ -212,10 +212,14 @@ class Dataset(object):
         bboxes = np.array([list(map(lambda x: int(float(x)), box.split(','))) for box in line[1:]])
 
         if self.data_aug:
-            image, bboxes = self.random_horizontal_flip(np.copy(image), np.copy(bboxes))
-            image, bboxes = self.random_crop(np.copy(image), np.copy(bboxes))
-            image, bboxes = self.random_translate(np.copy(image), np.copy(bboxes))
-            image, bboxes = self.rotate(np.copy(image), np.copy(bboxes))
+            if random.uniform(0, 1) >= 0.5:
+                image, bboxes = self.random_horizontal_flip(np.copy(image), np.copy(bboxes))
+            if random.uniform(0, 1) >= 0.5:
+               image, bboxes = self.random_crop(np.copy(image), np.copy(bboxes))
+            if random.uniform(0, 1) >= 0.5:
+               image, bboxes = self.random_translate(np.copy(image), np.copy(bboxes))
+            if random.uniform(0, 1) >= 0.5:
+               image, bboxes = self.rotate(np.copy(image), np.copy(bboxes))
             
         image, bboxes = image_preporcess(np.copy(image),
                 [train_input_size, train_input_size],

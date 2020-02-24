@@ -65,8 +65,6 @@ def build_args():
     parser.add_argument("--data_dir", default="./data")
     parser.add_argument("--log_dir", default="./log")
     parser.add_argument("--save_path", default="./models/cp-{epoch:02d}-{val_loss:02f}")
-    parser.add_argument("--restore", default=False, action="store_true")
-    # parser.add_argument("--train", default=True, action="store_false")
     parser.add_argument("--se", default=False, action="store_true", help="channel attention")
     parser.add_argument("--canny", default=False, action="store_true", help="add a channel except for rgb channel")
     parser.add_argument("--bn", default=False, action="store_true", help="batch norm")
@@ -84,6 +82,9 @@ def build_args():
     # ------- test / evaluating params -------
     parser.add_argument("--mode", choices=["train", "batch", "test", "video", "freeze"], default="video")
     parser.add_argument("--test_input", default=224, type=int)
+
+    # ------- freezon ----------------
+    parser.add_argument("--tflite", default=False, action="store_true", help="use tflite")
 
     args = parser.parse_args()
     # extra params

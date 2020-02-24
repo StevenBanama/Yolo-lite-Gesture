@@ -14,6 +14,11 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import LeakyReLU as LReLU, ReLU, Dense, GlobalAveragePooling2D, multiply 
 import tensorflow_model_optimization as tfmot
 
+'''
+def LReLU(alpha=0.3):
+    return lambda x: tf.maximum(alpha * x, x)
+'''
+
 def SE_BLOCK(input, using_SE=True, r_factor=2):
     # channel attention
     if not using_SE:
@@ -103,18 +108,18 @@ def decode(conv_output, anchors, stride, class_num, name):
     output_size      = conv_shape[1]
     anchor_per_scale = len(anchors)
 
-    conv_output = tf.reshape(conv_output, (batch_size, output_size, output_size, anchor_per_scale, 5 + class_num))
+    conv_output = tf.reshape(conv_output, (batch_size, output_size * output_size, anchor_per_scale, 5 + class_num))
 
-    conv_raw_dxdy = conv_output[:, :, :, :, 0:2]
-    conv_raw_dwdh = conv_output[:, :, :, :, 2:4]
-    conv_raw_conf = conv_output[:, :, :, :, 4:5]
-    conv_raw_prob = conv_output[:, :, :, :, 5: ]
+    conv_raw_dxdy = conv_output[:, :, :, 0:2]
+    conv_raw_dwdh = conv_output[:, :, :, 2:4]
+    conv_raw_conf = conv_output[:, :, :, 4:5]
+    conv_raw_prob = conv_output[:, :, :, 5: ]
 
-    y = tf.tile(tf.range(output_size, dtype=tf.int32)[:, tf.newaxis], [1, output_size])
-    x = tf.tile(tf.range(output_size, dtype=tf.int32)[tf.newaxis, :], [output_size, 1])
+    y = tf.tile(tf.expand_dims(tf.range(output_size, dtype=tf.int32), -1), [1, output_size])
+    x = tf.tile(tf.expand_dims(tf.range(output_size, dtype=tf.int32), 0), [output_size, 1])
 
-    xy_grid = tf.concat([x[:, :, tf.newaxis], y[:, :, tf.newaxis]], axis=-1)
-    xy_grid = tf.tile(xy_grid[tf.newaxis, :, :, tf.newaxis, :], [batch_size, 1, 1, anchor_per_scale, 1])
+    xy_grid = tf.concat([tf.expand_dims(x, -1), tf.expand_dims(y, -1)], axis=-1)
+    xy_grid = tf.tile(tf.reshape(xy_grid, (1, output_size*output_size, 1, 2)), [batch_size, 1, anchor_per_scale, 1])
     xy_grid = tf.cast(xy_grid, tf.float32)
 
     pred_xy = (tf.sigmoid(conv_raw_dxdy) + xy_grid) * stride
@@ -123,8 +128,8 @@ def decode(conv_output, anchors, stride, class_num, name):
 
     pred_conf = tf.sigmoid(conv_raw_conf)
     pred_prob = tf.nn.sigmoid(conv_raw_prob)
-
-    return tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1, name=name)
+    pred = tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1)
+    return tf.reshape(pred, (batch_size, output_size, output_size, anchor_per_scale, class_num + 5), name=name)
 
 def focal_loss(target, actual, alpha=1, gamma=2):
     return alpha * tf.pow(tf.abs(target - actual), gamma)

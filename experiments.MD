@@ -15,7 +15,7 @@
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.512
 
 --------------------------canny----------------------------------------------
-# 200 epoch wn batch-norm + cany ./models/cp-140-4.228698
+# 199 epoch wn batch-norm + cany ./models/cp-140-4.228698
  Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.419
  Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.878
  Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.260
@@ -47,18 +47,18 @@
 
 --------------------batch norm + se -----------------------------------------------
 # ./models/cp-12-4.031234
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.500
- Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.911
- Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.502
+Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.516
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.930
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.528
  Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = -1.000
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.479
- Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.523
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.583
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.583
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.583
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.502
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.533
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.579
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.579
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.579
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = -1.000
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.538
- Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.600
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.547
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.591
 
 # ./models/cp-30-3.614092
  Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.430
