@@ -10,6 +10,16 @@ import tensorflow as tf
 from train import build_model
 
 
+def draw_boxes(params, org_img, bboxes):
+    for bb in bboxes:
+        bb = bb.astype(np.int)
+        b1, b2 = tuple(bb[:2]), tuple(bb[2:4])
+        cate_id = bb[5]
+
+        cv2.putText(org_img, "%s"%(params.id2cate.get(cate_id, cate_id)), (bb[0], bb[1]), 2, 0.6, (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.rectangle(org_img, b1, b2, (0, 0, 255), 2)
+
+
 def checkpoint_loader(params):
     models = build_model(params)
 
@@ -24,14 +34,8 @@ def checkpoint_loader(params):
 
         bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.3)
         bboxes = nms(bboxes, 0.3, method='nms')
+        draw_boxes(params, org_img, bboxes)
 
-        for bb in bboxes:
-            bb = bb.astype(np.int)
-            b1, b2 = tuple(bb[:2]), tuple(bb[2:4])
-            cate_id = bb[5]
-
-            cv2.putText(org_img, "%s"%(params.id2cate.get(cate_id, cate_id)), (bb[0], bb[1]), 2, 0.6, (0, 255, 0), 1, cv2.LINE_AA)
-            cv2.rectangle(org_img, b1, b2, (0, 0, 255), 2)
         return bboxes
     return run_result
 
@@ -56,14 +60,7 @@ def pb_loader(params):
 
         bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.3)
         bboxes = nms(bboxes, 0.3, method='nms')
-
-        for bb in bboxes:
-            bb = bb.astype(np.int)
-            b1, b2 = tuple(bb[:2]), tuple(bb[2:4])
-            cate_id = bb[5]
-
-            cv2.putText(org_img, "%s"%(params.id2cate.get(cate_id, cate_id)), (bb[0], bb[1]), 2, 0.6, (0, 255, 0), 1, cv2.LINE_AA)
-            cv2.rectangle(org_img, b1, b2, (0, 0, 255), 2)
+        draw_boxes(params, org_img, bboxes)
         return bboxes
 
 
@@ -91,8 +88,9 @@ def tflite_loader(params):
 
         pred_bbox = np.reshape(bboxes, (-1, 5 + params.class_num))
 
-        bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.3)
+        bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.2)
         bboxes = nms(bboxes, 0.3, method='nms')
+        draw_boxes(params, org_img, bboxes)
         return bboxes
     return run_result
 
@@ -155,10 +153,10 @@ def freezon_graph(params):
         lge = tf.reshape(lge, (tf.shape(lge)[0], -1, tf.shape(lge)[-1],)) 
         merge_branch = tf.concat([mid, lge], axis=1)
         
-        model.inputs[0].set_shape([1, 224, 224, 3])
+        model.inputs[0].set_shape([1, params.test_input, params.test_input, 3])
         converter = tf.compat.v1.lite.TFLiteConverter.from_session(sess, model.inputs, [merge_branch])
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        converter.target_spec.supported_types = [tf.compat.v1.lite.constants.FLOAT]
+        converter.target_spec.supported_types = [tf.compat.v1.lite.constants.FLOAT16]
         tflite_model = converter.convert()
         open("gesture.tflite", "wb").write(tflite_model)
         return

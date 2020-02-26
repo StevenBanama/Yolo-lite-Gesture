@@ -78,6 +78,7 @@ def build_args():
     parser.add_argument("--eval_ano", default="./data/test.ano", help="evaluating anotaion.")
     parser.add_argument("--epoch", default=200)
     parser.add_argument("--batch_size", default=8, type=int)
+    parser.add_argument("--message", "-m", default="", help="extra mesage")
 
     # ------- test / evaluating params -------
     parser.add_argument("--mode", choices=["train", "batch", "test", "video", "freeze"], default="video")

@@ -120,7 +120,7 @@ class Dataset(object):
     def random_crop(self, image, bboxes):
         has_box = len(bboxes) > 0
 
-        if random.random() < 0.5:
+        if random.random() < 0.8:
             h, w, _ = image.shape
             if has_box:
                 max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
@@ -150,6 +150,8 @@ class Dataset(object):
             given a face with bbox and landmark, rotate with alpha
             and return rotated face with bbox, landmark (absolute position)
         """
+        if random.uniform(0, 1) >= 0.8:
+            return img, bboxes
         alpha = random.uniform(*range_degree)
         height, width = img.shape[:2]
         center = (width // 2, height // 2)
@@ -178,7 +180,7 @@ class Dataset(object):
 
     def random_translate(self, image, bboxes):
         has_box = len(bboxes) > 0
-        if random.random() < 0.5:
+        if random.random() < 0.8:
             h, w, _ = image.shape
             if has_box:
                 max_bbox = np.concatenate([np.min(bboxes[:, 0:2], axis=0), np.max(bboxes[:, 2:4], axis=0)], axis=-1)
@@ -212,14 +214,10 @@ class Dataset(object):
         bboxes = np.array([list(map(lambda x: int(float(x)), box.split(','))) for box in line[1:]])
 
         if self.data_aug:
-            if random.uniform(0, 1) >= 0.5:
-                image, bboxes = self.random_horizontal_flip(np.copy(image), np.copy(bboxes))
-            if random.uniform(0, 1) >= 0.5:
-               image, bboxes = self.random_crop(np.copy(image), np.copy(bboxes))
-            if random.uniform(0, 1) >= 0.5:
-               image, bboxes = self.random_translate(np.copy(image), np.copy(bboxes))
-            if random.uniform(0, 1) >= 0.5:
-               image, bboxes = self.rotate(np.copy(image), np.copy(bboxes))
+            image, bboxes = self.random_horizontal_flip(np.copy(image), np.copy(bboxes))
+            image, bboxes = self.random_crop(np.copy(image), np.copy(bboxes))
+            image, bboxes = self.random_translate(np.copy(image), np.copy(bboxes))
+            image, bboxes = self.rotate(np.copy(image), np.copy(bboxes))
             
         image, bboxes = image_preporcess(np.copy(image),
                 [train_input_size, train_input_size],

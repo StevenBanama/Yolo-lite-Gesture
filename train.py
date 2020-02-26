@@ -33,14 +33,16 @@ def SE_BLOCK(input, using_SE=True, r_factor=2):
 
 def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max", bn=False, se=False):
     conv = tf.keras.layers.Conv2D(kernel_shape[-1],
-            tuple(kernel_shape[:2]), padding="same", activation=activation,
-            # kernel_regularizer=tf.keras.regularizers.l1(0.01),
-            # activity_regularizer=tf.keras.regularizers.l2(0.01),
+            tuple(kernel_shape[:2]), padding="same",
+            # kernel_regularizer=tf.keras.regularizers.l1(0.001),
+            #activity_regularizer=tf.keras.regularizers.l2(0.001),
             name=name)(input)
     if bn:
         conv = tf.keras.layers.BatchNormalization()(conv)
     if se:
         conv = SE_BLOCK(conv)
+    if activation:
+        conv = activation(conv)
     if pooling == "max":
         conv = MaxPooling2D(pool_size=(2, 2), strides=strides, padding='same')(conv)
 
@@ -134,6 +136,29 @@ def decode(conv_output, anchors, stride, class_num, name):
 def focal_loss(target, actual, alpha=1, gamma=2):
     return alpha * tf.pow(tf.abs(target - actual), gamma)
 
+def balance_focal(target_tensor, prediction_tensor, gamma=2):
+    from tensorflow.python.ops import array_ops
+    classes_num = [53, 171, 165, 863, 141, 172, 160, 89]
+    zeros = array_ops.zeros_like(prediction_tensor, dtype=prediction_tensor.dtype)
+    one_minus_p = array_ops.where(tf.greater(target_tensor, zeros), target_tensor - prediction_tensor, zeros)
+    FT = -1 * (one_minus_p ** gamma) * tf.math.log(tf.clip_by_value(prediction_tensor, 1e-8, 1.0))
+
+    #2# get balanced weight alpha
+    classes_weight = array_ops.zeros_like(prediction_tensor, dtype=prediction_tensor.dtype)
+
+    total_num = float(sum(classes_num))
+    classes_w_t1 = [ total_num / ff for ff in classes_num ]
+    sum_ = sum(classes_w_t1)
+    classes_w_t2 = [ ff/sum_ for ff in classes_w_t1 ]   #scale
+    print("!!!!!!!!", classes_w_t2)
+    classes_w_tensor = tf.convert_to_tensor(classes_w_t2, dtype=prediction_tensor.dtype)
+    classes_weight += classes_w_tensor
+
+    alpha = array_ops.where(tf.greater(target_tensor, zeros), classes_weight, zeros)
+    balanced_fl = alpha * FT
+    return balanced_fl 
+
+
 def region_decode(conv1, conv2, class_num, stride, anchor, name):
     branch = tf.concat([conv1, conv2], axis=-1)
     raw_pred = Conv2D(3 * (class_num + 5), (1, 1), activation=None, name=name + "_raw")(branch)  # activation
@@ -161,6 +186,7 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
 
         pred_xywh     = pred[:, :, :, :, 0:4]
         pred_conf     = pred[:, :, :, :, 4:5]
+        pred_prob     = pred[:, :, :, :, 5:]
 
         label_xywh    = label[:, :, :, :, 0:4]
         respond_bbox  = label[:, :, :, :, 4:5]
@@ -190,6 +216,7 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
             respond_bgd * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf)
         )
         pos_prob_loss = respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
+        pos_prob_loss += respond_bbox * balance_focal(label_prob, pred_prob, 2)
         neg_prob_loss = 0  # 0.1 * respond_bgd * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
         prob_loss = pos_prob_loss + neg_prob_loss  # add bad case so remove respond_bbox
         print(prob_loss)
@@ -199,7 +226,7 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
         b_prob_loss = tf.reduce_sum(prob_loss, axis=[1, 2, 3, 4])
         giou_loss = tf.reduce_mean(b_giou_loss)
         conf_loss = tf.reduce_mean(b_conf_loss)
-        prob_loss = 0. if class_num <= 1 else tf.reduce_mean(b_prob_loss)
+        prob_loss = tf.reduce_mean(b_prob_loss)
 
         total_loss = giou_loss + conf_loss + prob_loss
         return total_loss

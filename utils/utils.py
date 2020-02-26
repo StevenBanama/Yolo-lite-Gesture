@@ -92,11 +92,11 @@ def image_preporcess(image, target_size, gt_boxes=None, canny=False):
     image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
     org_paded = np.copy(image_paded)
 
-    image_paded = (image_paded - 127.5) / 128.
+    image_paded = (image_paded - image_paded.mean()) / image_paded.std()
 
    
     if canny: 
-        canny_image = (cv2.Canny(org_paded.astype(np.uint8), 100, 200).astype(np.float32) - 127.5) / 128.0
+        canny_image = (cv2.Canny(org_paded.astype(np.uint8), 100, 200).astype(np.float32) - image_paded.mean()) / image_paded.std()
         canny_image = canny_image[:, :, np.newaxis]
         image_paded = np.concatenate([image_paded, canny_image], axis=-1)
 
