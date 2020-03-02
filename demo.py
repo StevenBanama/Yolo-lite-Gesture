@@ -30,7 +30,8 @@ def checkpoint_loader(params):
         pred_mbbox, pred_lbbox = models.predict(np.array([img]))
         pred_bbox = np.concatenate([
             np.reshape(pred_mbbox, (-1, 5 + params.class_num)),
-            np.reshape(pred_lbbox, (-1, 5 + params.class_num))], axis=0)
+            np.reshape(pred_lbbox, (-1, 5 + params.class_num))
+        ], axis=0)
 
         bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.3)
         bboxes = nms(bboxes, 0.3, method='nms')

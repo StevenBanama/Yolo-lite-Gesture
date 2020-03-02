@@ -111,11 +111,12 @@ class YOLO_Kmeans:
             for line in f.readlines():
                 infos = line.strip().split()
                 image_path = infos[0]
-                boxes = list(map(lambda x: [float(b) for b in x.split(",")[:4]], infos[1:]))
+                boxes = list(map(lambda x: [float(b) for b in x.split(",")[:5]], infos[1:]))
                 queue.append((image_path, boxes))
+        print(len(queue))
 
         #while(queue):
-        #    __proc_lines__(queue, result)
+        #    proc_lines(queue, result, size)
         pool = Pool(workers)
         for x in range(workers):
             r = pool.apply_async(proc_lines, args=(queue, result, size))
@@ -123,34 +124,45 @@ class YOLO_Kmeans:
         pool.close()
         pool.join()
         
-        print(len(result))
         locs = np.concatenate(list(result), axis=0)
-        result = np.concatenate([locs[:, 2:3] - locs[:, 0:1], locs[:, 3:4] - locs[:, 1:2]], axis=-1)
-        return result
+        result = np.concatenate([locs[:, 2:3] - locs[:, 0:1], locs[:, 3:4] - locs[:, 1:2], locs[:, 4:5]], axis=-1)
+        cls_ids = set(locs[:, 4:5].reshape((-1,)).tolist())
+
+        bboxes = []
+        for cid in cls_ids:
+            cls_candi = result[locs[:, 4] == cid]
+            np.random.shuffle(cls_candi)
+            print(cls_candi.shape)
+            bboxes.append(np.array(cls_candi[:150]))
+
+        return np.concatenate(bboxes, axis=0)[:, :2]
 
 
-    def txt2clusters2(self, size=320.0):
-        all_boxes = self.txt2boxes_remove_size(size)
-        result = self.kmeans(all_boxes, k=self.cluster_number)
+    def txt2clusters2(self, sizes=[160.0, 320.0]):
+        org_bboxes = self.txt2boxes()
+        all_bboxes = np.concatenate([self.txt2boxes_remove_size(size) for size in sizes], axis=0)
+        print("ddd",  all_bboxes.shape)
+        result = self.kmeans(all_bboxes, k=self.cluster_number)
         result = result[np.lexsort(result.T[0, None])]
         self.result2txt(result)
-        anchor_scale = list(map(str, (np.array(result) / np.array([16, 16, 16, 16, 16, 16, 32, 32, 32,32,32,32]).reshape((-1, 2))).reshape((-1,)).tolist()))
+        anchor_scale = list(map(str, (np.array(result) / np.array([16] * self.cluster_number + [32] * self.cluster_number).reshape((-1, 2))).reshape((-1,)).tolist()))
         print(",".join(anchor_scale))
         print("K anchors:\n {}".format(result))
         print("Accuracy: {:.2f}%".format(
-            self.avg_iou(all_boxes, result) * 100))
+            self.avg_iou(org_bboxes, result) * 100))
         print(",".join([str(x) for x in result.reshape((-1,))]))
 
 def proc_lines(queue, result, size):
     while(queue):
         path, boxes = queue.pop()
-        print(path)
         if not os.path.exists(path):
             print("!!!!!!image not exist: %s"%path)
             return
+        if len(boxes) < 1:
+            continue
         image = cv2.imread(path)
-        height, width = image.shape[:2]
-        wh_scale = np.array([width / size, height / size, width / size, height / size])
+        max_side = max(image.shape[:2])
+        wh_scale = np.array([max_side / size, max_side / size, max_side / size, max_side / size, 1])
         boxes = np.array(boxes) / wh_scale
         result.append(boxes.astype(int).tolist())
 
@@ -159,5 +171,5 @@ if __name__ == "__main__":
     cluster_number = 6
     filename = "./data/train.ano"  # "./data/dataset/cancer_train.ano"
     kmeans = YOLO_Kmeans(cluster_number, filename)
-    #kmeans.txt2clusters2(320)
-    kmeans.txt2clusters()
+    kmeans.txt2clusters2([128, 160, 192, 224, 256, 288, 320, 352, 384, 416])
+    #kmeans.txt2clusters()

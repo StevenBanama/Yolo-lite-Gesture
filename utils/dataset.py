@@ -29,7 +29,7 @@ class Dataset(object):
         self.num_samples = len(self.annotations)
         self.num_batchs = int(np.ceil(1.0 * self.num_samples / self.batch_size * self.sample_rate))
         self.read_index = 0
-        self.queue = Queue(32) 
+        self.queue = Queue(32)
         self.pworker = pworker
         self.lock = threading.Lock()
         self.threads = [threading.Thread(target=self.produce_task).start() for x in range(self.pworker)]
@@ -145,6 +145,11 @@ class Dataset(object):
 
         return image, bboxes
 
+    def color_switch(self, image, boxes, contrast=(0.5, 2.5), bright=(-50, 50)):
+        if random.random() < 0.5:
+            image = cv2.convertScaleAbs(image, alpha=random.uniform(*contrast), beta=random.uniform(*bright))
+        return image, boxes
+
     def rotate(self, img, bboxes, range_degree=(-10, 10)):
         """ 
             given a face with bbox and landmark, rotate with alpha
@@ -218,6 +223,7 @@ class Dataset(object):
             image, bboxes = self.random_crop(np.copy(image), np.copy(bboxes))
             image, bboxes = self.random_translate(np.copy(image), np.copy(bboxes))
             image, bboxes = self.rotate(np.copy(image), np.copy(bboxes))
+            image, bboxes = self.color_switch(image, bboxes)
             
         image, bboxes = image_preporcess(np.copy(image),
                 [train_input_size, train_input_size],
