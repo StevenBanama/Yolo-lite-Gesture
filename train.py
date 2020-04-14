@@ -30,6 +30,11 @@ def SE_BLOCK(input, using_SE=True, r_factor=2):
     print("!!!!!", channel_nums, scale, input)
     return multiply([scale, input])
 
+def block_another(input, params):
+    oth = (input - 127.5) / 128
+    bgd = block_conv(oth, [3, 3, -1, 16], name="block1_bgd", bn=params.bn, se=params.se)
+    block1 = block_conv(input, [3, 3, -1, 16], name="block1", bn=params.bn, se=params.se)
+    return tf.concat([bgd, block1], axis=-1) 
 
 def block_conv(input, kernel_shape, name, padding="same", strides=(2, 2), activation=None, pooling="max", bn=False, se=False):
     conv = tf.keras.layers.Conv2D(kernel_shape[-1],
@@ -136,9 +141,9 @@ def decode(conv_output, anchors, stride, class_num, name):
 def focal_loss(target, actual, alpha=1, gamma=2):
     return alpha * tf.pow(tf.abs(target - actual), gamma)
 
-def balance_focal(target_tensor, prediction_tensor, gamma=2):
+def balance_focal(target_tensor, prediction_tensor, distribution, gamma=2):
     from tensorflow.python.ops import array_ops
-    classes_num = [53, 171, 165, 863, 141, 172, 160, 89]
+    classes_num = distribution  # [53, 171, 165, 863, 141, 172, 160, 89]
     zeros = array_ops.zeros_like(prediction_tensor, dtype=prediction_tensor.dtype)
     one_minus_p = array_ops.where(tf.greater(target_tensor, zeros), target_tensor - prediction_tensor, zeros)
     FT = -1 * (one_minus_p ** gamma) * tf.math.log(tf.clip_by_value(prediction_tensor, 1e-8, 1.0))
@@ -156,7 +161,7 @@ def balance_focal(target_tensor, prediction_tensor, gamma=2):
 
     alpha = array_ops.where(tf.greater(target_tensor, zeros), classes_weight, zeros)
     balanced_fl = alpha * FT
-    return balanced_fl 
+    return balanced_fl, alpha 
 
 
 def region_decode(conv1, conv2, class_num, stride, anchor, name):
@@ -165,7 +170,7 @@ def region_decode(conv1, conv2, class_num, stride, anchor, name):
     pred = decode(raw_pred, anchor, stride=stride, class_num=class_num, name=name)
     return raw_pred, pred
 
-def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_per_scale=150):
+def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_per_scale=150, distribution=None):
     conv_shape = tf.shape(conv)
     batch_size, output_size = conv_shape[0], conv_shape[1]
     input_size = stride * output_size
@@ -176,6 +181,7 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
     conv = tf.reshape(conv, (batch_size, output_size, output_size, anchor_per_scale, 5 + class_num))
     conv_raw_conf = conv[:, :, :, :, 4:5]
     conv_raw_prob = conv[:, :, :, :, 5:]
+    distribution = distribution if distribution else [1] * class_num
 
 
     #@tf.function
@@ -203,22 +209,21 @@ def loss_layer(conv, anchors, stride, class_num, iou_loss_thresh=0.5, max_bbox_p
 
         iou = bbox_iou(pred_xywh[:, :, :, :, np.newaxis, :], bboxes[:, np.newaxis, np.newaxis, np.newaxis, :, :])
         max_iou = tf.expand_dims(tf.reduce_max(respond_bbox * iou, axis=-1), axis=-1)
-        print(iou, max_iou)
-
 
         respond_bgd = (1.0 - respond_bbox) * tf.cast( max_iou < iou_loss_thresh, tf.float32 )
 
         conf_focal = focal_loss(respond_bbox, pred_conf)
+        class_focal_loss, alpha = balance_focal(label_prob, pred_prob, distribution, 2)
+        obj_alpha = tf.expand_dims(tf.reduce_sum(alpha, axis=-1), -1)
 
         conf_loss = conf_focal * (
-            respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf)
+            respond_bbox * obj_alpha * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf)
             +
             respond_bgd * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf)
         )
-        pos_prob_loss = respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
-        pos_prob_loss += respond_bbox * balance_focal(label_prob, pred_prob, 2)
-        neg_prob_loss = 0  # 0.1 * respond_bgd * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
-        prob_loss = pos_prob_loss + neg_prob_loss  # add bad case so remove respond_bbox
+        pos_prob_loss = 0.75 * respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=label_prob, logits=conv_raw_prob)
+        pos_prob_loss += 0.25 * respond_bbox * class_focal_loss
+        prob_loss = pos_prob_loss
         print(prob_loss)
 
         b_giou_loss = tf.reduce_sum(giou_loss, axis=[1, 2, 3, 4])
@@ -243,6 +248,19 @@ def lite_backbone_net(input, params):
     backbone = Model([input], block7)
     backbone.summary() 
     return backbone, [block4, block5, block7]
+
+def lite_backbone_net2(input, params):
+    block1 = block_another(input, params)
+    block2 = block_conv(block1, [3, 3, 16, 32], activation=LReLU(), name="block2", bn=params.bn, se=params.se)
+    block3 = block_conv(block2, [3, 3, 32, 64], activation=LReLU(), name="block3", bn=params.bn, se=params.se)
+    block4 = block_conv(block3, [3, 3, 64, 128], activation=LReLU(), name="block4", bn=params.bn, se=params.se)
+    block5 = block_conv(block4, [3, 3, 128, 128], activation=LReLU(), name="block5", bn=params.bn, se=params.se)
+    block6 = block_conv(block5, [3, 3, 128, 256], pooling=None, name="block6", bn=params.bn, se=params.se)
+    block7 = block_conv(block6, [1, 1, 256, 128], pooling=None, name="block7", bn=params.bn, se=params.se)
+    backbone = Model([input], block7)
+    backbone.summary() 
+    return backbone, [block4, block5, block7]
+
 
 def get_callbacks(params):
 
@@ -282,8 +300,8 @@ def build_model(params):
         models.compile(
             optimizer=adam,
             loss=[
-                loss_layer(mid_raw, params.anchors[0], params.strides[0], params.class_num, iou_loss_thresh=params.iou_thres),
-                loss_layer(lge_raw, params.anchors[1], params.strides[1], params.class_num, iou_loss_thresh=params.iou_thres)
+                loss_layer(mid_raw, params.anchors[0], params.strides[0], params.class_num, iou_loss_thresh=params.iou_thres, distribution=params.distribution),
+                loss_layer(lge_raw, params.anchors[1], params.strides[1], params.class_num, iou_loss_thresh=params.iou_thres, distribution=params.distribution)
             ],
         )
     if params.pretrain_model:
@@ -296,6 +314,7 @@ def build_model(params):
 def build_net(params):
     dataset = Dataset("train", params, pworker=1)
     testset = Dataset("test", params, pworker=1)
+    params.distribution = dataset.sample_nums
 
     models = build_model(params)
     print(models.summary())

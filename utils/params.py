@@ -56,6 +56,8 @@ class LoadAnchors(argparse.Action):
             return np.reshape(anchors, (-1, 3, 2)) 
 
 def build_args():
+    import tensorflow as tf
+    tf.get_logger().setLevel('ERROR')
     parser = argparse.ArgumentParser()
 
     # ------train prams-------
@@ -73,12 +75,13 @@ def build_args():
     parser.add_argument("--iou_thres", default=0.5)
     parser.add_argument("--anchors_path", default="./data/anchors/anchors.txt", dest="anchors", action=LoadAnchors)
     parser.add_argument("--cate_path", default="./data/categories/cates.txt", dest="categories", action=LoadCates)
-    parser.add_argument("--train_ano", default="./data/train.ano")
+    parser.add_argument("--train_ano", default="./data/train.ano", help="split by comma")
     parser.add_argument("--test_ano", default="./data/test.ano")
     parser.add_argument("--eval_ano", default="./data/test.ano", help="evaluating anotaion.")
-    parser.add_argument("--epoch", default=200)
+    parser.add_argument("--epoch", default=200, type=int)
     parser.add_argument("--batch_size", default=8, type=int)
     parser.add_argument("--message", "-m", default="", help="extra mesage")
+    parser.add_argument("--thres", "-t", default=0.3, type=float)
 
     # ------- test / evaluating params -------
     parser.add_argument("--mode", choices=["train", "batch", "test", "video", "freeze"], default="video")

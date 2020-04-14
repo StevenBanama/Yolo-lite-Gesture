@@ -89,7 +89,7 @@ def tflite_loader(params):
 
         pred_bbox = np.reshape(bboxes, (-1, 5 + params.class_num))
 
-        bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.2)
+        bboxes = postprocess_boxes(pred_bbox, original_image_size, input_size, 0.3)
         bboxes = nms(bboxes, 0.3, method='nms')
         draw_boxes(params, org_img, bboxes)
         return bboxes
@@ -157,7 +157,7 @@ def freezon_graph(params):
         model.inputs[0].set_shape([1, params.test_input, params.test_input, 3])
         converter = tf.compat.v1.lite.TFLiteConverter.from_session(sess, model.inputs, [merge_branch])
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        converter.target_spec.supported_types = [tf.compat.v1.lite.constants.FLOAT16]
+        #converter.target_spec.supported_types = [tf.compat.v1.lite.constants.FLOAT16]
         tflite_model = converter.convert()
         open("gesture.tflite", "wb").write(tflite_model)
         return

@@ -93,7 +93,7 @@ class YOLO_Kmeans:
         result = self.kmeans(all_boxes, k=self.cluster_number)
         result = result[np.lexsort(result.T[0, None])]
         self.result2txt(result)
-        anchor_scale = list(map(str, (np.array(result) / np.array([16, 16, 16, 16, 16, 16, 32, 32, 32,32,32,32]).reshape((-1, 2))/ 2).reshape((-1,)).tolist()))
+        anchor_scale = list(map(str, (np.array(result) / np.array([32, 32, 32,32,32,32]).reshape((-1, 2))/ 2).reshape((-1,)).tolist()))
         print(",".join(anchor_scale))
         print("K anchors:\n {}".format(result))
         print("Accuracy: {:.2f}%".format(
@@ -168,8 +168,8 @@ def proc_lines(queue, result, size):
 
 
 if __name__ == "__main__":
-    cluster_number = 6
+    cluster_number = 3
     filename = "./data/train.ano"  # "./data/dataset/cancer_train.ano"
     kmeans = YOLO_Kmeans(cluster_number, filename)
-    kmeans.txt2clusters2([128, 160, 192, 224, 256, 288, 320, 352, 384, 416])
-    #kmeans.txt2clusters()
+    #kmeans.txt2clusters2([128, 160, 192, 224, 256, 288, 320, 352, 384, 416])
+    kmeans.txt2clusters()

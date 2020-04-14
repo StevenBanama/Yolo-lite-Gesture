@@ -92,7 +92,7 @@ def image_preporcess(image, target_size, gt_boxes=None, canny=False):
     image_paded[dh:nh+dh, dw:nw+dw, :] = image_resized
     org_paded = np.copy(image_paded)
 
-    image_paded = (image_paded - image_paded.mean()) / image_paded.std()
+    # image_paded = (image_paded - image_paded.mean()) / image_paded.std()
 
    
     if canny: 

@@ -10,7 +10,7 @@ from .utils import image_preporcess
 class Dataset(object):
     """implement Dataset here"""
     def __init__(self, dataset_type, params, sample_rate=1.0, pworker=3):
-        self.annot_path  = params.train_ano if dataset_type == "train" else params.test_ano
+        self.anno_paths  = (params.train_ano if dataset_type == "train" else params.test_ano).split(",")
         self.batch_size  = params.batch_size
         self.channel_num  = params.channel
 
@@ -24,6 +24,7 @@ class Dataset(object):
         self.anchors = params.anchors
         self.anchor_per_scale = 3
         self.max_bbox_per_scale = 150
+        self.sample_nums = [0] * params.class_num
 
         self.annotations = self.load_annotations(dataset_type)
         self.num_samples = len(self.annotations)
@@ -33,12 +34,24 @@ class Dataset(object):
         self.pworker = pworker
         self.lock = threading.Lock()
         self.threads = [threading.Thread(target=self.produce_task).start() for x in range(self.pworker)]
+        
 
 
     def load_annotations(self, dataset_type):
-        with open(self.annot_path, 'r') as f:
-            txt = f.readlines()
-            annotations = [line.strip() for line in txt if len(line.strip().split()) != 0]
+        annotations = []
+        for path in self.anno_paths:
+            with open(path, 'r') as f:
+                txt = f.readlines()
+                annotations += [line.strip() for line in txt if len(line.strip().split()) != 0]
+        
+        cls_ids = []
+        for ano in annotations:
+            ano = ano.split()
+            if len(ano[1:]) > 0:
+                cls_ids += map(lambda x: int(x.split(",")[4]), ano[1:])
+        for cls_id in cls_ids:
+            self.sample_nums[cls_id] += 1
+        print("!!!!!!", self.sample_nums)
         np.random.shuffle(annotations)
         return annotations
 
@@ -134,8 +147,8 @@ class Dataset(object):
 
             crop_xmin = max(0, int(max_bbox[0] - random.uniform(0, max_l_trans)))
             crop_ymin = max(0, int(max_bbox[1] - random.uniform(0, max_u_trans)))
-            crop_xmax = max(w, int(max_bbox[2] + random.uniform(0, max_r_trans)))
-            crop_ymax = max(h, int(max_bbox[3] + random.uniform(0, max_d_trans)))
+            crop_xmax = min(w, int(max_bbox[2] + random.uniform(0, max_r_trans)))
+            crop_ymax = min(h, int(max_bbox[3] + random.uniform(0, max_d_trans)))
 
             image = image[crop_ymin : crop_ymax, crop_xmin : crop_xmax]
 
@@ -307,12 +320,13 @@ class Dataset(object):
                 best_anchor = int(best_anchor_ind % self.anchor_per_scale)
                 xind, yind = np.floor(bbox_xywh_scaled[best_detect, 0:2]).astype(np.int32)
 
-                label[best_detect][yind, xind, best_anchor, :] = 0
-                label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
-                label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
-                label[best_detect][yind, xind, best_anchor, 5:] = smooth_onehot
+                if train_output_sizes[i] > xind and train_output_sizes[i] > yind:
+                    label[best_detect][yind, xind, best_anchor, :] = 0
+                    label[best_detect][yind, xind, best_anchor, 0:4] = bbox_xywh
+                    label[best_detect][yind, xind, best_anchor, 4:5] = 1.0
+                    label[best_detect][yind, xind, best_anchor, 5:] = smooth_onehot
 
-                bbox_ind = int(bbox_count[best_detect] % self.max_bbox_per_scale)
+                    bbox_ind = int(bbox_count[best_detect] % self.max_bbox_per_scale)
 
         label_mbbox, label_lbbox = label
         return label_mbbox, label_lbbox
